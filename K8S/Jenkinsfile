@@ -1,105 +1,112 @@
-pipeline{
-    agent any
-    tools{
-        jdk 'jdk-17'
-        nodejs 'Node16'
-    }
-    environment {
-        SCANNER_HOME=tool 'sonar-scanner'
-    }
-    stages {
-        stage('clean workspace'){
-            steps{
-                cleanWs()
-            }
-        }
-        stage('Checkout from Git'){
-            steps{
-                git branch: 'main', url: 'https://github.com/Aseemakram19/hotstar-kubernetes.git'
-            }
-        }
-        stage("Sonarqube Analysis "){
-            steps{
-                withSonarQubeEnv('sonar-server') {
-                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Hotstar \
-                    -Dsonar.projectKey=Hotstar '''
-                }
-            }
-        }
-        stage("quality gate"){
-           steps {
-                script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token' 
-                }
-            } 
-        }
-        stage('Install Dependencies') {
-            steps {
-                sh "npm install"
-            }
-        }
-        stage('OWASP FS SCAN') {
-            steps {
-                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP'
-                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-            }
-        }
-            stage('TRIVY FS SCAN') {
-            steps {
-                sh "trivy fs . > trivyfs.txt"
-            }
-        }
-        stage("Docker Build & Push"){
-            steps{
-                script{
-                   withDockerRegistry(credentialsId: 'docker', toolName: 'docker'){   
-                       sh "docker build -t hotstar ."
-                       sh "docker tag hotstar aseemakram19/hotstar:latest "
-                       sh "docker push aseemakram19/hotstar:latest "
-                    }
-                }
-            }
-        }
-        stage("TRIVY"){
-            steps{
-                sh "trivy image aseemakram19/hotstar:latest > trivyimage.txt" 
-            }
-        }
-        stage('Deploy to container'){
-            steps{
-                sh 'docker run -d --name hotstar -p 3000:3000 aseemakram19/hotstar:latest'
-            }
-        }
+pipeline {
+  agent any
+  options { ansiColor('xterm'); timestamps() }
+  tools { jdk 'jdk'; nodejs 'nodejs' }
+  environment {
+    SCANNER_HOME = tool 'sonar-scanner'
+    IMAGE_NAME   = 'kubeanu6205/hotstar'
+    IMAGE_TAG    = "${env.GIT_COMMIT.take(7)}"
+  }
+  stages {
+    stage('Clean') { steps { cleanWs() } }
 
+    stage('Checkout') {
+      steps {
+        git branch: 'main',
+            credentialsId: 'github-token',
+            url: 'https://github.com/Anubhav6205/hoststar-devops.git'
+      }
     }
-    post {
-    always {
+
+    stage('SonarQube (SAST)') {
+      steps {
+        withSonarQubeEnv('SonarQube') {
+          sh '''
+            set -euo pipefail
+            "$SCANNER_HOME/bin/sonar-scanner" \
+              -Dsonar.projectKey=Hotstar \
+              -Dsonar.projectName=Hotstar
+          '''
+        }
+      }
+    }
+
+    stage('Quality Gate') {
+      steps {
+        timeout(time: 5, unit: 'MINUTES') {
+          // fail the pipeline if gate fails
+          waitForQualityGate abortPipeline: true
+        }
+      }
+    }
+
+    stage('Dependencies (deterministic)') {
+      steps { sh 'npm ci' }
+    }
+
+    stage('SCA: OWASP Dependency-Check') {
+      steps {
+        withCredentials([string(credentialsId: 'NVD_API_KEY', variable: 'NVD_KEY')]) {
+          dependencyCheck additionalArguments: "--scan . --format XML --out . --data ./odc-data --nvdApiKey ${NVD_KEY} --disableYarnAudit --disableNodeAudit",
+                          odcInstallation: 'DC'
+        }
+        dependencyCheckPublisher pattern: 'dependency-check-report.xml'
+      }
+    }
+
+    stage('Build Docker Image') {
+      steps {
         script {
-            def buildStatus = currentBuild.currentResult
-            def buildUser = currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause')[0]?.userId ?: 'Github User'
-            
-            emailext (
-                subject: "Pipeline ${buildStatus}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: """
-                    <p>This is a Jenkins hotstar CICD pipeline status.</p>
-                    <p>Project: ${env.JOB_NAME}</p>
-                    <p>Build Number: ${env.BUILD_NUMBER}</p>
-                    <p>Build Status: ${buildStatus}</p>
-                    <p>Started by: ${buildUser}</p>
-                    <p>Build URL: <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
-                """,
-                to: 'mohdaseemakram19@gmail.com',
-                from: 'mohdaseemakram19@gmail.com',
-                replyTo: 'mohdaseemakram19@gmail.com',
-                mimeType: 'text/html',
-                attachmentsPattern: 'trivyfs.txt,trivyimage.txt'
-            )
-           }
-       }
-
+          sh """
+            set -euo pipefail
+            docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+          """
+        }
+      }
     }
 
+    stage('Trivy Image Scan (gate)') {
+      steps {
+        sh """
+          set -euo pipefail
+          trivy image --severity HIGH,CRITICAL --exit-code 1 --no-progress ${IMAGE_NAME}:${IMAGE_TAG} | tee trivyimage.txt
+        """
+      }
+    }
+
+    stage('Push Image') {
+      steps {
+        withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
+          sh """
+            docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest
+            docker push ${IMAGE_NAME}:${IMAGE_TAG}
+            docker push ${IMAGE_NAME}:latest
+          """
+        }
+      }
+    }
+
+    // (Optional) Local run for smoke test — better to deploy to K8s instead of Jenkins agent
+    // stage('Smoke (container)') { steps { sh 'docker run --rm -d -p 3000:3000 ${IMAGE_NAME}:${IMAGE_TAG}' } }
+  }
+
+  post {
+    always {
+      script {
+        def buildStatus = currentBuild.currentResult
+        emailext(
+          subject: "Pipeline ${buildStatus}: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+          body: """<p>Jenkins HOTSTAR CI/CD status</p>
+                   <p>Build: ${env.BUILD_NUMBER} • Status: ${buildStatus}</p>
+                   <p>URL: <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>""",
+          // Use a preconfigured Jenkins mailer or a list variable stored in Jenkins, not plain text here
+          to: '${DEVOPS_ALERTS_EMAILS}',
+          mimeType: 'text/html',
+          attachmentsPattern: 'trivyimage.txt,dependency-check-report.xml'
+        )
+      }
+      // cleanup dangling containers/images if you enabled the smoke test
+      sh 'docker ps -aq --filter "name=hotstar" | xargs -r docker rm -f || true'
+    }
+  }
 }
-
-
-

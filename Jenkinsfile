@@ -2,7 +2,7 @@ pipeline{
     agent any
     tools{
         jdk 'jdk'
-        nodejs 'node'
+        nodejs 'nodejs'
     }
     environment {
         SCANNER_HOME=tool 'sonar-scanner'
@@ -15,10 +15,10 @@ pipeline{
         }
         stage('Checkout from Git'){
             steps{
-                git branch: 'main', credentialsId: 'github-token', url: 'https://github.com/Aseemakram19/hotstar-kubernetes.git'
+              git branch: 'main', credentialsId: 'github-token', url:           'https://github.com/Anubhav6205/hoststar-devops.git'
             }
         }
-        stage("Sonarqube Analysis "){
+        stage("Sonarqube Analysis"){
             steps{
                 withSonarQubeEnv('SonarQube') {
                     sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Hotstar \
@@ -33,11 +33,12 @@ pipeline{
                 }
             } 
         }
-        stage('Install Dependencies') {
+        stage('Dependencies') {
             steps {
                 sh "npm install"
             }
         }
+       
         stage('OWASP FS SCAN') {
             steps {
                 dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --nvdApiKey d7e8c629-7da9-4f96-8a4a-a45fd3f213ba', odcInstallation: 'DC'
@@ -54,20 +55,20 @@ pipeline{
                 script{
                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker'){   
                        sh "docker build -t hotstar ."
-                       sh "docker tag hotstar aseemakram19/hotstar:latest "
-                       sh "docker push aseemakram19/hotstar:latest "
+                       sh "docker tag hotstar kubeanu6205/hotstar:latest "
+                       sh "docker push kubeanu6205/hotstar:latest "
                     }
                 }
             }
         }
         stage("TRIVY"){
             steps{
-                sh "trivy image aseemakram19/hotstar:latest > trivyimage.txt" 
+                sh "trivy image kubeanu6205/hotstar:latest > trivyimage.txt" 
             }
         }
         stage('Deploy to container'){
             steps{
-                sh 'docker run -d --name hotstar -p 3000:3000 aseemakram19/hotstar:latest'
+                sh 'docker run -d --name hotstar -p 3000:3000 kubeanu6205/hotstar:latest'
             }
         }
 
@@ -88,9 +89,9 @@ pipeline{
                     <p>Started by: ${buildUser}</p>
                     <p>Build URL: <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
                 """,
-                to: 'mohdaseemakram19@gmail.com',
-                from: 'mohdaseemakram19@gmail.com',
-                replyTo: 'mohdaseemakram19@gmail.com',
+                to: 'anubhavgupta6205@gmail.com',
+                from: 'anubhavgupta6205@gmail.com',
+                replyTo: 'anubhavgupta6205@gmail.com',
                 mimeType: 'text/html',
                 attachmentsPattern: 'trivyfs.txt,trivyimage.txt'
             )
