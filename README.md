@@ -7,6 +7,7 @@ This project showcases a complete **DevOps pipeline** that deploys a **Hotstar w
 ## 🏗 Architecture
 <img width="10765" height="5267" alt="Architecture diagram" src="https://github.com/user-attachments/assets/773a93c7-f51a-4d3c-848d-f36a82e5ff1a" />
 
+
 **Flow:**
 1. Developer pushes code to GitHub.
 2. Jenkins pipeline:
@@ -72,3 +73,4 @@ DNS and raw TCP work only with host and port.
 
 ## 📜 License
 This project is for educational and demonstration purposes.
+
