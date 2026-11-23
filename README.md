@@ -1,76 +1,71 @@
-# 🚀 End-to-End DevOps: CI/CD → EKS → Observability
+# CI/CD to EKS with Monitoring
 
-> **Build → Scan → Quality Gate → Containerize → Push → Deploy → Probe → Visualize**
+A DevOps pipeline project. Jenkins builds a React web app, scans it, pushes a Docker image and deploys it to Amazon EKS, while a Terraform-provisioned EC2 server runs Prometheus, Blackbox Exporter and Grafana to watch uptime. The sample app is a streaming-site UI clone that uses The Movie Database (TMDB) API. It is only a workload for the pipeline, so the project is about the delivery tooling, not the front end.
 
-This project showcases a complete **DevOps pipeline** that deploys a **Hotstar website clone** to **Amazon EKS (Kubernetes)**, secures builds with **SonarQube + OWASP Dependency-Check + Trivy**, and monitors user-visible uptime with **Prometheus + Blackbox Exporter + Grafana**. Infra for monitoring is provisioned with **Terraform**. Notifications are sent via **Gmail SMTP**.
+**Status:** finished demo (2025).
 
-## 🏗 Architecture
-<img width="10765" height="5267" alt="Architecture diagram" src="https://github.com/user-attachments/assets/773a93c7-f51a-4d3c-848d-f36a82e5ff1a" />
+![Architecture diagram](https://github.com/user-attachments/assets/773a93c7-f51a-4d3c-848d-f36a82e5ff1a)
 
+## Pipeline
 
-**Flow:**
-1. Developer pushes code to GitHub.
-2. Jenkins pipeline:
-   - Builds application.
-   - Runs code quality & security scans.
-   - Builds & pushes Docker image.
-   - Deploys to EKS.
-3. Terraform provisions a monitoring EC2 instance.
-4. Prometheus with Blackbox Exporter probes application uptime.
-5. Grafana visualizes metrics & uptime status.
+```mermaid
+flowchart LR
+    G[GitHub] --> J[Jenkins]
+    J --> S[SonarQube + quality gate]
+    S --> D[OWASP Dependency-Check]
+    D --> T[Trivy scans]
+    T --> B[Docker build and push]
+    B --> K[Amazon EKS]
+    P[Prometheus + Blackbox] -- probes --> K
+    GR[Grafana] --> P
+```
 
----
+| Stage | Tool |
+|---|---|
+| Static analysis and quality gate | SonarQube |
+| Dependency scan | OWASP Dependency-Check |
+| Filesystem and image scan | Trivy |
+| Image build and push | Docker, Docker Hub |
+| Deploy | kubectl on EKS (2 replicas, rolling update, LoadBalancer service) |
+| Monitoring server | Terraform (AWS EC2 in `ap-south-1`) |
+| Uptime probes | Prometheus with Blackbox Exporter (`http_2xx`, `tcp_connect`, `http_post_2xx`) |
+| Dashboards | Grafana |
+| Notifications | Jenkins email on build result |
 
-## 🧰 Tech Stack
-- **Version Control:** GitHub  
-- **CI/CD:** Jenkins  
-- **Quality & Security:** SonarQube, OWASP Dependency-Check, Trivy  
-- **Containerization:** Docker  
-- **Orchestration:** Amazon EKS (Kubernetes)  
-- **IaC:** Terraform (Monitoring Infrastructure)  
-- **Monitoring:** Prometheus + Blackbox Exporter + Grafana  
-- **Notifications:** Email via Gmail SMTP  
+## Repository layout
 
----
+```
+Jenkinsfile                          pipeline that builds, scans, pushes and runs the container
+K8S/Jenkinsfile                      pipeline variant with the image-scan gate and push
+K8S/manifest.yml                     Deployment and Service for the app
+K8S/eks-cluster-and-Deployment-guide.txt   notes for creating the EKS cluster
+Terraform/                           monitoring EC2 instance and security group
+scripts/                             install scripts for Jenkins, Docker, Trivy, kubectl, eksctl, Terraform, Grafana
+prometheus-blackbox-config.txt       Blackbox scrape configuration
+src/                                 React sample app
+```
 
-## ⚙️ Key Features
-- **Automated Build & Deployment:** Push to main branch triggers full pipeline.  
-- **Security & Quality Gates:** Builds fail if quality or vulnerability thresholds are not met.  
-- **Immutable Deployments:** Docker images tagged with commit hashes.  
-- **Uptime Monitoring:** Blackbox Exporter TCP, HTTP, and POST probes.  
-- **Custom Dashboards:** Grafana connected to Prometheus.  
-- **Infrastructure Automation:** Terraform-managed monitoring server.  
+## Running the sample app locally
 
----
+```bash
+cp .env.example .env     # add a TMDB API key
+npm install
+npm start                # http://localhost:3000
+```
 
-## 📊 Monitoring – Blackbox Exporter Modules
-- **http_2xx** → Checks for HTTP 200 OK responses.  
-- **tcp_connect** → Validates TCP connectivity to services.  
-- **http_post_2xx** → Tests POST endpoints for success responses.  
+The Jenkins, SonarQube, EKS and Terraform parts need your own AWS account, Jenkins credentials (`github-token`, `Sonar-token`, `docker`) and the tools installed by the scripts in `scripts/`. They have not been re-run since 2025.
 
-*Note:*  
-`http://` and `https://` are URL schemes, not part of the hostname.  
-DNS and raw TCP work only with host and port.
+## Limitations
 
----
+- The pushed Docker image is tagged `latest`, not with a commit hash.
+- The security group in `Terraform/main.tf` allows SSH from any address. Restrict it before real use.
+- The Terraform AWS keys are passed in as variables. Prefer an IAM role or environment credentials.
+- Docker Hub image name and notification email are hard-coded in the Jenkinsfiles.
 
-## 🚀 How It Works
-1. **Code Commit → Jenkins Build**
-2. **Scans → Docker Image → Push to Registry**
-3. **Deploy to EKS via kubectl**
-4. **Terraform → Monitoring Server**
-5. **Prometheus + Blackbox → Probe EKS Service**
-6. **Grafana → Visualize Metrics**
+## License
 
----
+MIT, see [LICENSE](LICENSE).
 
-## 📌 Outcomes
-- Fully automated CI/CD with built-in quality and security checks.  
-- Scalable deployment on AWS EKS.  
-- Live uptime monitoring with visual dashboards.  
+## Contact
 
----
-
-## 📜 License
-This project is for educational and demonstration purposes.
-
+Anubhav Gupta, [LinkedIn](https://www.linkedin.com/in/anubhav-gupta-92410a244/)
