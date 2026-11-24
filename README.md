@@ -4,6 +4,10 @@ A DevOps pipeline project. Jenkins builds a React web app, scans it, pushes a Do
 
 **Status:** finished demo (2025).
 
+**Live demo:** https://cicd-to-eks-with-monitoring.vercel.app
+
+The Vercel link shows only the sample React app (a static build). The Jenkins pipeline, EKS cluster and Prometheus/Grafana monitoring are not hosted. The movie rows need a TMDB API key (`REACT_APP_TMDB_API_KEY`), which is not set on the Vercel deployment, so they show a short notice instead of posters. `vercel.json` sets `CI=false` for the build because the sample app has lint warnings that CI mode would treat as errors.
+
 ![Architecture diagram](https://github.com/user-attachments/assets/773a93c7-f51a-4d3c-848d-f36a82e5ff1a)
 
 ## Pipeline
@@ -68,4 +72,4 @@ MIT, see [LICENSE](LICENSE).
 
 ## Contact
 
-Anubhav Gupta, [LinkedIn](https://www.linkedin.com/in/anubhav-gupta-92410a244/)
+Anubhav Gupta, [LinkedIn](https://www.linkedin.com/in/anubhavgupta8)

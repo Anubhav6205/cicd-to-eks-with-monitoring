@@ -3,14 +3,21 @@ import tmdbAxiosInstance from '../tmdbAxiosInstance'
 import './Row.css'
 function Row({title,fetchUrl}) {
 const [allMovies,setAllMovies]=useState([])
-console.log(fetchUrl);
+const [error,setError]=useState(null)
 const base_url="https://image.tmdb.org/t/p/original/"
 
 const fetchData=async()=>{
-   const {data}= await tmdbAxiosInstance.get(fetchUrl)
-   setAllMovies(data.results)
+   if(!process.env.REACT_APP_TMDB_API_KEY){
+      setError("No TMDB API key is configured for this deployment, so movie rows are not loaded.")
+      return
+   }
+   try{
+      const {data}= await tmdbAxiosInstance.get(fetchUrl)
+      setAllMovies(data.results)
+   }catch(e){
+      setError("Could not load movies from TMDB.")
+   }
 }
-console.log(allMovies);
 useEffect(()=>{
     fetchData()
 },[])
@@ -18,6 +25,7 @@ useEffect(()=>{
   return (
     <div className='row'>
         <h1>{title}</h1>
+        {error && <p style={{color:"#aaa",padding:"0 20px"}}>{error}</p>}
         <div className="all_movies">
 
             {
@@ -40,12 +48,12 @@ useEffect(()=>{
                                         </div>
                                         <h2>{item.original_title}</h2>
                                         <div style={{display:"flex"}}>
-                                            <h3>{item.release_date.slice(0,4)}</h3>
+                                            <h3>{(item.release_date||'').slice(0,4)}</h3>
                                             <h3> &nbsp;.&nbsp; </h3>
                                             <h3>Rating: {item.vote_average}</h3>
                                         </div>
                                         <p>
-                                            {item.overview.slice(0,80)}
+                                            {(item.overview||'').slice(0,80)}
                                         </p>
                                     </div>
             

@@ -12,6 +12,10 @@ import requests from './request';
 function App() {
   return (
     <>
+   <div style={{background:'#1f2a44',color:'#fff',padding:'8px 16px',fontSize:'13px',textAlign:'center'}}>
+     This is the sample React app that the CI/CD pipeline builds and deploys. The Jenkins, EKS and monitoring parts are not hosted here.{' '}
+     <a style={{color:'#8ab4ff'}} href='https://github.com/Anubhav6205/cicd-to-eks-with-monitoring'>Repository</a>
+   </div>
    <div className='rel'>
    <div className="nnn">
           <Nav/>
